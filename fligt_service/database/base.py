@@ -14,3 +14,8 @@ engine: Engine = create_engine(
 DBSession = sessionmaker(engine, expire_on_commit=False)
 
 Base = declarative_base()
+
+
+def get_session():
+    with DBSession() as session:
+        yield session
