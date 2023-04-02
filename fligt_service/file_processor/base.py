@@ -5,6 +5,8 @@ from operator import methodcaller
 from dateutil.parser import ParserError
 from typing import Type
 
+from loguru import logger
+
 from fligt_service.data_saver import DataSaver
 from fligt_service.database.base import Base
 from services.amqp.consumer import RabbitConsumer
@@ -36,11 +38,13 @@ class BaseFileProcessor:
         message = json.loads(body)
         try:
             file_name, file_type = message.get("filename").split(".")
+            logger.info(f"Start process file {file_name}")
             self.full_path = self.get_file_destination_folder("In", file_name, file_type)
             json_data = methodcaller(f"process_{file_type}_file", file_name)(
                 self
             )
             out_file = self.get_file_destination_folder("Out", file_name, "json")
+            logger.info(f"Processing is finished, start write to json file {out_file}")
             with open(out_file, "w") as file:
                 json.dump(json_data, file)
             self.__move_file(self.full_path, self.ok_files_folder)
@@ -52,14 +56,15 @@ class BaseFileProcessor:
             )
             data_saver = DataSaver(self.model)
             data_saver.save_one_row(body_to_safe_in_database)
+            logger.success("All process finished correctly")
         except KeyError as key_error:
-            print(key_error)
+            logger.error(f"An key error, moving file {key_error}")
             self.__move_file(self.full_path, self.error_files_folder)
         except ParserError as parser_error:
-            print(parser_error)
+            logger.error(f"Bad date was come in file {parser_error}")
             self.__move_file(self.full_path, self.error_files_folder)
         except ValueError as value_error:
-            print(value_error)
+            logger.error(f"Key error {value_error}")
             self.__move_file(self.full_path, self.error_files_folder)
 
 
@@ -67,6 +72,13 @@ class BaseFileProcessor:
     def get_file_destination_folder(
         self, type: str, filename: str | None = None, file_type: str | None = None
     ) -> str:
+        """
+        Функция для получения пути, куда сохранять файлы при разных сценариях
+        :param type:
+        :param filename:
+        :param file_type:
+        :return:
+        """
         match type:
             case "Ok":
                 return self.base_folder + self.ok_folder

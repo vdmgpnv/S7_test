@@ -3,6 +3,7 @@ from typing import Any
 
 import pika
 from pika.adapters.blocking_connection import BlockingChannel
+from loguru import logger
 
 from config import rabbit_host, rabbit_password, rabbit_user
 
@@ -32,6 +33,7 @@ class RabbitProducer:
         """Объявляем очередь, если она не объявлена и отправляем туда переданное сообщение"""
         message = json.dumps(body)
         self.channel.queue_declare(queue=self.queue, durable=True)
+        logger.info(f"Sending the message {body}")
         self.channel.basic_publish(
             exchange="",
             routing_key=self.queue,
